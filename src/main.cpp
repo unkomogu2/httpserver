@@ -11,33 +11,42 @@ int main(int argc, char const* argv[]) {
   HttpServer server(port);
   server.run([](const HttpRequest& request) {
     const auto path = request.header.path;
-    auto target = std::string{};
     if (path == "/") {
-      target = "./resources/index.html";
+      auto target = "./resources/index.html";
+      std::ifstream ifs(target, std::ios::binary);
+      if (!ifs.is_open())
+        return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
+
+      auto body = std::string{};
+      char buffer[1024];
+      while (!ifs.eof()) {
+        ifs.read(buffer, 1024);
+        body.append(buffer, ifs.gcount());
+      }
+      return HttpResponse{"HTTP/1.1 200 OK", "text/html", body};
+
     } else {
-      target = "./resources" + path;
-    }
+      auto target = "./resources" + path;
+      std::ifstream ifs(target, std::ios::binary);
+      if (!ifs.is_open())
+        return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
 
-    std::ifstream ifs(target, std::ios::binary);
-    if (!ifs.is_open())
-      return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
+      auto mimetype = std::string{"text/html"};
+      if (endsWith(target, ".ico")) {
+        mimetype = "image/x-icon";
+      } else if (endsWith(target, ".js")) {
+        mimetype = "application/javascript";
+      } else if (endsWith(target, ".css")) {
+        mimetype = "text/css";
+      }
 
-    auto ext = extensionOf(target);
-    auto mimetype = std::string{"text/html"};
-    if (ext == "ico") {
-      mimetype = "image/x-icon";
-    } else if (ext == "js") {
-      mimetype = "application/javascript";
-    } else if (ext == "css") {
-      mimetype = "text/css";
+      auto body = std::string{};
+      char buffer[1024];
+      while (!ifs.eof()) {
+        ifs.read(buffer, 1024);
+        body.append(buffer, ifs.gcount());
+      }
+      return HttpResponse{"HTTP/1.1 200 OK", mimetype, body};
     }
-
-    auto body = std::string{};
-    char buffer[1024];
-    while (!ifs.eof()) {
-      ifs.read(buffer, 1024);
-      body.append(buffer, ifs.gcount());
-    }
-    return HttpResponse{"HTTP/1.1 200 OK", mimetype, body};
   });
 }

@@ -55,7 +55,7 @@ struct HttpServer {
     srcAddr.sin_family = AF_INET;
     srcAddr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    bool yes = 1;
+    const char yes = 1;
     m_socket = socket(AF_INET, SOCK_STREAM, 0);
     setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
@@ -76,10 +76,7 @@ struct HttpServer {
     socklen_t dstAddrSize = sizeof(dstAddr);
 
     while (1) {
-      printf("Waiting for connection ...\n");
       client = accept(m_socket, (sockaddr *)&dstAddr, &dstAddrSize);
-      printf("Connected from %s\n", inet_ntoa(dstAddr.sin_addr));
-
       auto recvData = std::string{};
       char buffer[BUFFER_SIZE];
       int recvCount = recv(client, buffer, BUFFER_SIZE, 0);
