@@ -11,6 +11,9 @@ int main(int argc, char const* argv[]) {
   HttpServer server(port);
   server.run([](const HttpRequest& request) {
     const auto path = request.header.path;
+    if (path.empty())
+      return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
+
     if (path == "/") {
       auto target = "./resources/index.html";
       std::ifstream ifs(target, std::ios::binary);

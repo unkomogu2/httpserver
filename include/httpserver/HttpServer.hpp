@@ -25,6 +25,8 @@ const size_t BUFFER_SIZE = 8192;
 
 HttpRequest parseRequest(const std::string &recvData) {
   std::vector<std::string> headerbody = split(recvData, "\r\n\r\n");
+  if (headerbody.empty())
+    return HttpRequest{{}, ""};
   auto header = headerbody[0];
   auto lines = split(header, "\r\n");
   if (lines.empty()) return {};
@@ -80,7 +82,7 @@ struct HttpServer {
       auto recvData = std::string{};
       char buffer[BUFFER_SIZE];
       int recvCount = recv(client, buffer, BUFFER_SIZE, 0);
-      recvData.append(buffer, recvCount);
+      if (recvCount > 0) recvData.append(buffer, recvCount);
 
       // parse request
       auto request = parseRequest(recvData);
