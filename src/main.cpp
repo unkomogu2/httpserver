@@ -6,7 +6,7 @@
 
 const int port = 8000;
 
-std::string load(std::ifstream& ifs) {
+std::string loadfile(std::ifstream& ifs) {
   static char buffer[1024];
   auto ret = std::string{};
   while (!ifs.eof()) {
@@ -16,33 +16,34 @@ std::string load(std::ifstream& ifs) {
   return ret;
 }
 
+std::string mimetype(const std::string& target) {
+  auto mimetype = std::string{"text/html"};
+  if (endsWith(target, ".ico")) {
+    mimetype = "image/x-icon";
+  } else if (endsWith(target, ".js")) {
+    mimetype = "application/javascript";
+  } else if (endsWith(target, ".css")) {
+    mimetype = "text/css";
+  }
+  return mimetype;
+}
+
 HttpResponse get(const HttpRequest& request) {
   const auto path = request.header.path;
   if (path.empty())
     return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
+
+  auto target = std::string{};
   if (path == "/") {
-    auto target = "./resources/index.html";
-    std::ifstream ifs(target, std::ios::binary);
-    if (!ifs.is_open())
-      return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
-    auto body = load(ifs);
-    return HttpResponse{"HTTP/1.1 200 OK", "text/html", body};
+    target = "./resources/index.html";
   } else {
-    auto target = "./resources" + path;
-    std::ifstream ifs(target, std::ios::binary);
-    if (!ifs.is_open())
-      return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
-    auto mimetype = std::string{"text/html"};
-    if (endsWith(target, ".ico")) {
-      mimetype = "image/x-icon";
-    } else if (endsWith(target, ".js")) {
-      mimetype = "application/javascript";
-    } else if (endsWith(target, ".css")) {
-      mimetype = "text/css";
-    }
-    auto body = load(ifs);
-    return HttpResponse{"HTTP/1.1 200 OK", mimetype, body};
+    target = "./resources" + path;
   }
+
+  std::ifstream ifs(target, std::ios::binary);
+  if (!ifs.is_open())
+    return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
+  return HttpResponse{"HTTP/1.1 200 OK", mimetype(target), loadfile(ifs)};
 }
 
 HttpResponse post(const HttpRequest& request) {
@@ -55,10 +56,11 @@ int main(int argc, char const* argv[]) {
   HttpServer server(port);
   server.run([](const HttpRequest& request) {
     const auto method = toUpper(request.header.method);
-    if (method == "GET")
+    if (method == "GET") {
       return get(request);
-    else if (method == "POST")
+    } else if (method == "POST") {
       return post(request);
+    }
     return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
   });
 }
