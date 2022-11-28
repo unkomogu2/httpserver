@@ -48,6 +48,11 @@ HttpResponse get(const HttpRequest& request) {
 
 HttpResponse post(const HttpRequest& request) {
   const auto path = request.header.path;
+  if (path == "/send") {
+    auto body = decodeURL(request.body);
+    std::cout << body << std::endl;
+    return HttpResponse{"HTTP/1.1 200 OK", "text/html", body};
+  }
   return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
 }
 
