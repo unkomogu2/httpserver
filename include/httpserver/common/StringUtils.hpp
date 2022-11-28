@@ -102,8 +102,7 @@ std::string decodeURL(const std::string& s) {
   while (p != eol) {
     if (*p == '%') {
       ++p;
-      auto s2 = std::string{p, p + 2};
-      ret += decode(s2);
+      ret += decode({p, p + 2});
       p += 2;
       continue;
     }

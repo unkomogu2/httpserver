@@ -50,8 +50,8 @@ HttpResponse post(const HttpRequest& request) {
   const auto path = request.header.path;
   if (path == "/send") {
     auto body = decodeURL(request.body);
-    std::cout << body << std::endl;
-    return HttpResponse{"HTTP/1.1 200 OK", "text/html", body};
+    std::cout << "request: " << body << std::endl;
+    return HttpResponse{"HTTP/1.1 200 OK", "text/html", encodeURL(body)};
   }
   return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
 }
