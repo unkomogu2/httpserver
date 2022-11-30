@@ -4,8 +4,6 @@
 #include <fstream>
 #include <iostream>
 
-const int port = 8000;
-
 std::string loadfile(std::ifstream& ifs) {
   static char buffer[1024];
   auto ret = std::string{};
@@ -33,6 +31,10 @@ HttpResponse get(const HttpRequest& request) {
   if (path.empty())
     return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
 
+  if (path.find("..") != std::string::npos) {
+    return HttpResponse{"HTTP/1.1 404 Not Found", "text/html", ""};
+  }
+
   auto target = std::string{};
   if (path == "/") {
     target = "./resources/index.html";
@@ -57,8 +59,8 @@ HttpResponse post(const HttpRequest& request) {
 }
 
 int main(int argc, char const* argv[]) {
-  std::cout << "Server running on http://localhost:" << port << std::endl;
-  HttpServer server(port);
+  std::cout << "Server is running at http://127.0.0.1:8000" << std::endl;
+  HttpServer server(8000);
   server.run([](const HttpRequest& request) {
     const auto method = toUpper(request.header.method);
     if (method == "GET") {

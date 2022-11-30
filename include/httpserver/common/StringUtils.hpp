@@ -102,7 +102,8 @@ std::string decodeURL(const std::string& s) {
   while (p != eol) {
     if (*p == '%') {
       ++p;
-      ret += decode({p, p + 2});
+      auto s2 = std::string{p, p + 2};
+      ret += decode(s2);
       p += 2;
       continue;
     }
@@ -112,4 +113,35 @@ std::string decodeURL(const std::string& s) {
     }
   }
   return ret;
+}
+
+std::string replace(const std::string& s, const std::string& pattern,
+                    const std::string& replace) {
+  std::string ret;
+  size_t p1 = 0, p2 = std::string::npos;
+  while (true) {
+    p2 = s.find(pattern, p1);
+    if (p2 != std::string::npos) {
+      ret += std::string{s.begin() + p1, s.begin() + p2};
+      ret += replace;
+    } else {
+      ret += std::string{s.begin() + p1, s.end()};
+      break;
+    }
+    p1 = p2 + pattern.size();
+  }
+  return ret;
+}
+
+std::string join(const std::vector<std::string> v, const std::string& d) {
+  if (v.empty()) return "";
+  auto ret = v[0];
+  for (size_t i = 1; i < v.size(); ++i) {
+    ret += d + v[i];
+  }
+  return ret;
+}
+
+bool contains(const std::string& str, const std::string& pattern) {
+  return str.find(pattern) != std::string::npos;
 }
