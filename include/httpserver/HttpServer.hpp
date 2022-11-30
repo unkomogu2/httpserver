@@ -23,6 +23,12 @@
 
 const size_t BUFFER_SIZE = 8192;
 
+std::string valueOf(const HttpRequestHeader &header, const std::string &key) {
+  auto headers = header.headers;
+  if (headers.find(key) == headers.end()) return "";
+  return headers.at(key);
+}
+
 HttpRequest parseRequest(const std::string &recvData) {
   if (recvData.empty()) return HttpRequest{};
   std::vector<std::string> headerbody = split(recvData, "\r\n\r\n");
@@ -42,6 +48,7 @@ HttpRequest parseRequest(const std::string &recvData) {
     requestHeader.headers[pair[0]] = pair[1];
   }
 
+  // parse body
   auto body = headerbody[1];
   return HttpRequest{requestHeader, body};
 }
@@ -87,6 +94,16 @@ struct HttpServer {
 
       // parse request
       auto request = parseRequest(recvData);
+
+      // receive remaining data
+      if (toUpper(request.header.method) == "POST") {
+        auto contentLength =
+            std::stoi(valueOf(request.header, "Content-Length"));
+        while (request.body.size() < contentLength) {
+          int n = recv(client, buffer, BUFFER_SIZE, 0);
+          request.body.append(buffer, n);
+        }
+      }
 
       // handle request
       HttpResponse resp = handler(request);
