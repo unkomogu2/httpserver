@@ -24,22 +24,24 @@
 const size_t BUFFER_SIZE = 8192;
 
 HttpRequest parseRequest(const std::string &recvData) {
+  if (recvData.empty()) return HttpRequest{};
   std::vector<std::string> headerbody = split(recvData, "\r\n\r\n");
-  if (headerbody.empty()) return HttpRequest{{}, ""};
   auto header = headerbody[0];
   auto lines = split(header, "\r\n");
   if (lines.empty()) return {};
+  // parse header message
   auto message = split(lines[0], " ");
   auto requestHeader = HttpRequestHeader{};
   requestHeader.method = message[0];
   requestHeader.path = message[1];
   requestHeader.version = message[2];
-  size_t i = 1;
-  while (lines[i].empty()) {
+
+  // parse header attrs
+  for (size_t i = 1; i < lines.size(); ++i) {
     auto pair = split(lines[i], ": ");
     requestHeader.headers[pair[0]] = pair[1];
-    ++i;
   }
+
   auto body = headerbody[1];
   return HttpRequest{requestHeader, body};
 }
