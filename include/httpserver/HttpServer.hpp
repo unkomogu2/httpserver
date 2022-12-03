@@ -1,8 +1,9 @@
 #include <HttpRequest.hpp>
 #include <HttpResponse.hpp>
 #include <common/StringUtils.hpp>
-#include <iostream>
 #include <sstream>
+#include <thread>
+#include <future>
 #include <vector>
 
 #ifdef __linux__
@@ -55,14 +56,14 @@ HttpRequest parseRequest(int client, const std::string &recvData) {
     char buffer[BUFFER_SIZE];
     while (body.size() < len) {
       int n = recv(client, buffer, BUFFER_SIZE, 0);
-      body.append(buffer, n);
+      if (n > 0) body.append(buffer, n);
     }
   }
   return HttpRequest{requestHeader, body};
 }
 
 struct HttpServer {
-  HttpServer(unsigned short port) {
+  HttpServer(unsigned short port) : m_socket{} {
 #ifdef _WIN32
     WSADATA data;
     WSAStartup(MAKEWORD(2, 0), &data);
@@ -89,38 +90,51 @@ struct HttpServer {
 
   template <class RequestHandler>
   void run(RequestHandler &&handler) {
-    int client;
     sockaddr_in dstAddr;
     socklen_t dstAddrSize = sizeof(dstAddr);
-
     while (1) {
-      client = accept(m_socket, (sockaddr *)&dstAddr, &dstAddrSize);
-      auto recvData = std::string{};
-      char buffer[BUFFER_SIZE];
-      int recvCount = recv(client, buffer, BUFFER_SIZE, 0);
-      if (recvCount > 0) recvData.append(buffer, recvCount);
+      std::vector<std::future<void>> results = {};
+      for (int i = 0; i < 1000; ++i) {
+        auto future = std::async(
+            [&](RequestHandler &&handler) {
+              int client = accept(m_socket, (sockaddr *)&dstAddr, &dstAddrSize);
+            reuseaddr:
+              auto recvData = std::string{};
+              char buffer[BUFFER_SIZE];
+              int recvCount = recv(client, buffer, BUFFER_SIZE, 0);
+              if (recvCount > 0) recvData.append(buffer, recvCount);
 
-      // parse request
-      auto request = parseRequest(client, recvData);
+              // parse request
+              auto request = parseRequest(client, recvData);
 
-      // handle request
-      HttpResponse resp = handler(request);
+              bool keepAlive =
+                  valueOf(request.header, "Connection") == "keep-alive";
 
-      // send response
-      std::stringstream ss;
-      ss << resp.message << "\r\n";
-      ss << "Content-Length: " << resp.body.size() << "\r\n";
-      ss << "Content-Type: " << resp.mimetype << "\r\n";
-      ss << "\r\n";
-      ss << resp.body;
-      auto response = ss.str();
-      send(client, response.data(), response.size(), 0);
+              // handle request
+              HttpResponse resp = handler(request);
 
+              // send response
+              std::stringstream ss;
+              ss << resp.message << "\r\n";
+              ss << "Content-Length: " << resp.body.size() << "\r\n";
+              ss << "Content-Type: " << resp.mimetype << "\r\n";
+              ss << "\r\n";
+              ss << resp.body;
+              auto response = ss.str();
+              send(client, response.data(), response.size(), 0);
+
+              if (keepAlive) goto reuseaddr;
 #ifdef __linux__
-      close(client);
+              close(client);
 #elif _WIN32
-      closesocket(client);
+              closesocket(client);
 #endif
+              return;
+            },
+            std::move(handler));
+        results.emplace_back(std::move(future));
+      }
+      for (auto &&f : results) f.get();
     }
   }
 
