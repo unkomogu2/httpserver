@@ -1,9 +1,9 @@
 #include <HttpRequest.hpp>
 #include <HttpResponse.hpp>
 #include <common/StringUtils.hpp>
+#include <future>
 #include <sstream>
 #include <thread>
-#include <future>
 #include <vector>
 
 #ifdef __linux__
@@ -93,48 +93,37 @@ struct HttpServer {
     sockaddr_in dstAddr;
     socklen_t dstAddrSize = sizeof(dstAddr);
     while (1) {
-      std::vector<std::future<void>> results = {};
-      for (int i = 0; i < 1000; ++i) {
-        auto future = std::async(
-            [&](RequestHandler &&handler) {
-              int client = accept(m_socket, (sockaddr *)&dstAddr, &dstAddrSize);
-            reuseaddr:
-              auto recvData = std::string{};
-              char buffer[BUFFER_SIZE];
-              int recvCount = recv(client, buffer, BUFFER_SIZE, 0);
-              if (recvCount > 0) recvData.append(buffer, recvCount);
+      int client = accept(m_socket, (sockaddr *)&dstAddr, &dstAddrSize);
+    reuseaddr:
+      auto recvData = std::string{};
+      char buffer[BUFFER_SIZE];
+      int recvCount = recv(client, buffer, BUFFER_SIZE, 0);
+      if (recvCount > 0) recvData.append(buffer, recvCount);
 
-              // parse request
-              auto request = parseRequest(client, recvData);
+      // parse request
+      auto request = parseRequest(client, recvData);
 
-              bool keepAlive =
-                  valueOf(request.header, "Connection") == "keep-alive";
+      bool keepAlive = valueOf(request.header, "Connection") == "keep-alive";
 
-              // handle request
-              HttpResponse resp = handler(request);
+      // handle request
+      HttpResponse resp = handler(request);
 
-              // send response
-              std::stringstream ss;
-              ss << resp.message << "\r\n";
-              ss << "Content-Length: " << resp.body.size() << "\r\n";
-              ss << "Content-Type: " << resp.mimetype << "\r\n";
-              ss << "\r\n";
-              ss << resp.body;
-              auto response = ss.str();
-              send(client, response.data(), response.size(), 0);
+      // send response
+      std::stringstream ss;
+      ss << resp.message << "\r\n";
+      ss << "Content-Length: " << resp.body.size() << "\r\n";
+      ss << "Content-Type: " << resp.mimetype << "\r\n";
+      ss << "\r\n";
+      ss << resp.body;
+      auto response = ss.str();
+      send(client, response.data(), response.size(), 0);
 
-              if (keepAlive) goto reuseaddr;
+      if (keepAlive) goto reuseaddr;
 #ifdef __linux__
-              close(client);
+      close(client);
 #elif _WIN32
-              closesocket(client);
+      closesocket(client);
 #endif
-              return;
-            },
-            std::move(handler));
-        results.emplace_back(std::move(future));
-      }
-      for (auto &&f : results) f.get();
     }
   }
 
